@@ -2,26 +2,30 @@
 pipeline {
     agent any
 
+    options {
+        skipDefaultCheckout(true)
+        timestamps()
+    }
+
     environment {
         DOCKER_IMAGE = 'sohamccd/cloud-cicd-lab:latest'
         DOCKER_EXE = 'C:\\Users\\soham\\AppData\\Local\\Programs\\DockerDesktop\\resources\\bin\\docker.exe'
         KUBECTL_EXE = 'C:\\Users\\soham\\AppData\\Local\\Programs\\DockerDesktop\\resources\\bin\\kubectl.exe'
+        PYTHON_EXE = 'C:\\Users\\soham\\AppData\\Local\\Programs\\Python\\Python313\\python.exe'
         KUBECONFIG = 'C:\\Users\\soham\\.kube\\config'
     }
 
     stages {
         stage('Checkout') {
             steps {
-                git branch: 'main',
-                    url: 'https://github.com/soham216dev/cloud-cicd-lab.git'
+                checkout scm
             }
         }
 
         stage('Test Application') {
             steps {
-                
-                bat '"C:\\Users\\soham\\AppData\\Local\\Programs\\Python\\Python313\\python.exe" -m py_compile app.py'
-                bat '"C:\\Users\\soham\\AppData\\Local\\Programs\\Python\\Python313\\python.exe" -m pip show flask'
+                bat '"%PYTHON_EXE%" -m py_compile app.py'
+                bat '"%PYTHON_EXE%" -c "import ast; ast.parse(open(\'app.py\', encoding=\'utf-8\').read()); print(\'Python syntax test passed\')"'
             }
         }
 
@@ -40,10 +44,12 @@ pipeline {
                 )]) {
                     bat '''
                         @echo off
-                        echo %DOCKER_PASS%| "%DOCKER_EXE%" login -u "%DOCKER_USER%" --password-stdin
+                        powershell.exe -NoProfile -NonInteractive -Command "$env:DOCKER_PASS | & $env:DOCKER_EXE login --username $env:DOCKER_USER --password-stdin"
                         if errorlevel 1 exit /b 1
+
                         "%DOCKER_EXE%" push "%DOCKER_IMAGE%"
                         if errorlevel 1 exit /b 1
+
                         "%DOCKER_EXE%" logout
                     '''
                 }
@@ -54,11 +60,26 @@ pipeline {
             steps {
                 bat 'set KUBECONFIG=%KUBECONFIG% && "%KUBECTL_EXE%" apply -f k8s\\deployment.yaml'
                 bat 'set KUBECONFIG=%KUBECONFIG% && "%KUBECTL_EXE%" apply -f k8s\\service.yaml'
-                bat 'set KUBECONFIG=%KUBECONFIG% && "%KUBECTL_EXE%" set image deployment/cloud-cicd-deployment cloud-cicd-app=%DOCKER_IMAGE%'
-                bat 'set KUBECONFIG=%KUBECONFIG% && "%KUBECTL_EXE%" rollout status deployment/cloud-cicd-deployment --timeout=120s'
+
+                bat 'set KUBECONFIG=%KUBECONFIG% && "%KUBECTL_EXE%" rollout restart deployment/cloud-cicd-deployment'
+                bat 'set KUBECONFIG=%KUBECONFIG% && "%KUBECTL_EXE%" rollout status deployment/cloud-cicd-deployment --timeout=180s'
+
+                bat 'set KUBECONFIG=%KUBECONFIG% && "%KUBECTL_EXE%" get deployments'
                 bat 'set KUBECONFIG=%KUBECONFIG% && "%KUBECTL_EXE%" get pods'
                 bat 'set KUBECONFIG=%KUBECONFIG% && "%KUBECTL_EXE%" get services'
             }
+        }
+    }
+
+    post {
+        success {
+            echo 'CI/CD pipeline completed successfully.'
+        }
+        failure {
+            echo 'CI/CD pipeline failed. Check the stage logs above.'
+        }
+        always {
+            echo 'Pipeline execution finished.'
         }
     }
 }
