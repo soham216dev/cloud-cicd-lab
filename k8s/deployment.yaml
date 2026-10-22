@@ -14,6 +14,7 @@ spec:
     spec:
       containers:
         - name: cloud-cicd-app
-          image: sohammccd/cloud-cicd-lab:latest
+          image: sohamccd/cloud-cicd-lab:latest
           ports:
             - containerPort: 5000
+
