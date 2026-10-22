@@ -45,16 +45,12 @@ pipeline {
                     echo "Docker Hub username: ${env.DOCKER_USER}"
                     echo "Docker Hub token populated: ${env.DOCKER_PASS ? 'YES' : 'NO'}"
 
-                    bat '''
-                        @echo off
-                        powershell.exe -NoProfile -NonInteractive -Command "$env:DOCKER_PASS | & $env:DOCKER_EXE login --username $env:DOCKER_USER --password-stdin"
-                        if errorlevel 1 exit /b 1
+bat '''
+    @echo off
+    powershell.exe -NoProfile -NonInteractive -Command "$ErrorActionPreference = 'Stop'; Write-Output ('Username present: ' + [bool]$env:DOCKER_USER); Write-Output ('Token present: ' + [bool]$env:DOCKER_PASS); Write-Output ('Token length: ' + $env:DOCKER_PASS.Length); Write-Output ('Docker executable exists: ' + (Test-Path $env:DOCKER_EXE)); Write-Output ('Docker config override: ' + [bool]$env:DOCKER_CONFIG)"
+'''
 
-                        "%DOCKER_EXE%" push "%DOCKER_IMAGE%"
-                        if errorlevel 1 exit /b 1
-
-                        "%DOCKER_EXE%" logout
-                    '''
+                    
                 }
             }
         }
