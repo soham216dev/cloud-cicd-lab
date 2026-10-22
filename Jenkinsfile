@@ -11,7 +11,7 @@ pipeline {
 
         stage('Build Docker Image') {
             steps {
-                bat 'docker build -t sohamccd/cloud-cicd-lab:latest .'
+                sh 'docker build -t sohamccd/cloud-cicd-lab:latest .'
             }
         }
     }
