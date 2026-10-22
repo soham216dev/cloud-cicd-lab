@@ -70,30 +70,16 @@ pipeline {
                         passwordVariable: 'DOCKER_PASS'
                     )
                 ]) {
-                    script {
-                        def dockerConfigDir = "${pwd()}\\.jenkins-docker-config"
+                    bat '''
+                        @echo off
+                        setlocal DisableDelayedExpansion
 
-                        withEnv(["DOCKER_CONFIG=${dockerConfigDir}"]) {
-                            try {
-                                bat '''
-                                    @echo off
-                                    if not exist "%DOCKER_CONFIG%" mkdir "%DOCKER_CONFIG%"
+                        powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command "$ErrorActionPreference='Stop'; $env:DOCKER_PASS | & $env:DOCKER_EXE login --username $env:DOCKER_USER --password-stdin; exit $LASTEXITCODE"
+                        if errorlevel 1 exit /b 1
 
-                                    powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command "$ErrorActionPreference='Stop'; $env:DOCKER_PASS | & $env:DOCKER_EXE login --username $env:DOCKER_USER --password-stdin; exit $LASTEXITCODE"
-                                    if errorlevel 1 exit /b 1
-
-                                    "%DOCKER_EXE%" push "%DOCKER_IMAGE%"
-                                    if errorlevel 1 exit /b 1
-                                '''
-                            } finally {
-                                bat '''
-                                    @echo off
-                                    if exist "%DOCKER_CONFIG%" rmdir /s /q "%DOCKER_CONFIG%"
-                                    exit /b 0
-                                '''
-                            }
-                        }
-                    }
+                        "%DOCKER_EXE%" push "%DOCKER_IMAGE%"
+                        if errorlevel 1 exit /b 1
+                    '''
                 }
             }
         }
@@ -127,8 +113,13 @@ pipeline {
                 bat '''
                     set "KUBECONFIG=%KUBECONFIG%"
                     "%KUBECTL_EXE%" get deployments
+                    if errorlevel 1 exit /b 1
+
                     "%KUBECTL_EXE%" get pods
+                    if errorlevel 1 exit /b 1
+
                     "%KUBECTL_EXE%" get services
+                    if errorlevel 1 exit /b 1
                 '''
             }
         }
