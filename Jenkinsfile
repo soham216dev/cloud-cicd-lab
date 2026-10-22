@@ -42,6 +42,8 @@ pipeline {
                     usernameVariable: 'DOCKER_USER',
                     passwordVariable: 'DOCKER_PASS'
                 )]) {
+echo "Docker Hub username: ${env.DOCKER_USER}"
+echo "Docker Hub token populated: ${env.DOCKER_PASS ? 'YES' : 'NO'}"
                     bat '''
                         @echo off
                         powershell.exe -NoProfile -NonInteractive -Command "$ErrorActionPreference = 'Stop'; $env:DOCKER_PASS | & $env:DOCKER_EXE login --username $env:DOCKER_USER --password-stdin"
