@@ -1,0 +1,19 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cloud-cicd-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: cloud-cicd
+  template:
+    metadata:
+      labels:
+        app: cloud-cicd
+    spec:
+      containers:
+        - name: cloud-cicd-app
+          image: sohammccd/cloud-cicd-lab:latest
+          ports:
+            - containerPort: 5000
