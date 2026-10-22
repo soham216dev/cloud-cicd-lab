@@ -44,7 +44,7 @@ pipeline {
                 )]) {
                     bat '''
                         @echo off
-                        powershell.exe -NoProfile -NonInteractive -Command "$env:DOCKER_PASS | & $env:DOCKER_EXE login --username $env:DOCKER_USER --password-stdin"
+                        powershell.exe -NoProfile -NonInteractive -Command "$ErrorActionPreference = 'Stop'; $env:DOCKER_PASS | & $env:DOCKER_EXE login --username $env:DOCKER_USER --password-stdin"
                         if errorlevel 1 exit /b 1
 
                         "%DOCKER_EXE%" push "%DOCKER_IMAGE%"
