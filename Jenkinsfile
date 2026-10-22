@@ -24,10 +24,12 @@ pipeline {
 
         stage('Test Application') {
             steps {
-                bat '"%PYTHON_EXE%" -m py_compile app.py'
-
                 bat '''
+                    "%PYTHON_EXE%" -m py_compile app.py
+                    if errorlevel 1 exit /b 1
+
                     "%PYTHON_EXE%" -c "import ast; ast.parse(open('app.py', encoding='utf-8').read()); print('Python syntax test passed')"
+                    if errorlevel 1 exit /b 1
                 '''
             }
         }
@@ -38,6 +40,24 @@ pipeline {
                     "%DOCKER_EXE%" build -t "%DOCKER_IMAGE%" .
                     if errorlevel 1 exit /b 1
                 '''
+            }
+        }
+
+        stage('Diagnose Docker Hub Credential') {
+            steps {
+                withCredentials([
+                    usernamePassword(
+                        credentialsId: 'dockerhub-credentials',
+                        usernameVariable: 'DOCKER_USER',
+                        passwordVariable: 'DOCKER_PASS'
+                    )
+                ]) {
+                    bat '''
+                        @echo off
+                        powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command "$ErrorActionPreference='Stop'; Write-Output ('Docker username correct: ' + ($env:DOCKER_USER -eq 'sohamccd')); Write-Output ('Token populated: ' + (-not [string]::IsNullOrEmpty($env:DOCKER_PASS))); Write-Output ('Token has surrounding whitespace: ' + ($env:DOCKER_PASS -ne $env:DOCKER_PASS.Trim())); Write-Output ('Docker executable exists: ' + (Test-Path $env:DOCKER_EXE))"
+                        if errorlevel 1 exit /b 1
+                    '''
+                }
             }
         }
 
@@ -59,8 +79,7 @@ pipeline {
                                     @echo off
                                     if not exist "%DOCKER_CONFIG%" mkdir "%DOCKER_CONFIG%"
 
-                                    powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command "$ErrorActionPreference = 'Stop'; $env:DOCKER_PASS | & $env:DOCKER_EXE login --username $env:DOCKER_USER --password-stdin; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }"
-
+                                    powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command "$ErrorActionPreference='Stop'; $env:DOCKER_PASS | & $env:DOCKER_EXE login --username $env:DOCKER_USER --password-stdin; exit $LASTEXITCODE"
                                     if errorlevel 1 exit /b 1
 
                                     "%DOCKER_EXE%" push "%DOCKER_IMAGE%"
