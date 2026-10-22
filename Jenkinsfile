@@ -19,8 +19,9 @@ pipeline {
 
         stage('Test Application') {
             steps {
-                bat 'python -m py_compile app.py'
-                bat 'python -m pip show flask'
+                
+                bat '"C:\\Users\\soham\\AppData\\Local\\Programs\\Python\\Python313\\python.exe" -m py_compile app.py'
+                bat '"C:\\Users\\soham\\AppData\\Local\\Programs\\Python\\Python313\\python.exe" -m pip show flask'
             }
         }
 
