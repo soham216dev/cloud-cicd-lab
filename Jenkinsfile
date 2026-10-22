@@ -13,7 +13,6 @@ pipeline {
         KUBECTL_EXE = 'C:\\Users\\soham\\AppData\\Local\\Programs\\DockerDesktop\\resources\\bin\\kubectl.exe'
         PYTHON_EXE = 'C:\\Users\\soham\\AppData\\Local\\Programs\\Python\\Python313\\python.exe'
         KUBECONFIG = 'C:\\Users\\soham\\.kube\\config'
-        DOCKER_CONFIG = 'C:\\Users\\soham\\.docker'
     }
 
     stages {
@@ -27,13 +26,18 @@ pipeline {
             steps {
                 bat '"%PYTHON_EXE%" -m py_compile app.py'
 
-                bat '"%PYTHON_EXE%" -c "import ast; ast.parse(open(\'app.py\', encoding=\'utf-8\').read()); print(\'Python syntax test passed\')"'
+                bat '''
+                    "%PYTHON_EXE%" -c "import ast; ast.parse(open('app.py', encoding='utf-8').read()); print('Python syntax test passed')"
+                '''
             }
         }
 
         stage('Build Docker Image') {
             steps {
-                bat '"%DOCKER_EXE%" build -t %DOCKER_IMAGE% .'
+                bat '''
+                    "%DOCKER_EXE%" build -t "%DOCKER_IMAGE%" .
+                    if errorlevel 1 exit /b 1
+                '''
             }
         }
 
@@ -46,35 +50,67 @@ pipeline {
                         passwordVariable: 'DOCKER_PASS'
                     )
                 ]) {
-                    bat '''
-                        @echo off
-                        setlocal DisableDelayedExpansion
+                    script {
+                        def dockerConfigDir = "${pwd()}\\.jenkins-docker-config"
 
-                        powershell.exe -NoProfile -NonInteractive -Command "$ErrorActionPreference='Stop'; $env:DOCKER_PASS | & $env:DOCKER_EXE login --username $env:DOCKER_USER --password-stdin"
-                        if errorlevel 1 exit /b 1
+                        withEnv(["DOCKER_CONFIG=${dockerConfigDir}"]) {
+                            try {
+                                bat '''
+                                    @echo off
+                                    if not exist "%DOCKER_CONFIG%" mkdir "%DOCKER_CONFIG%"
 
-                        "%DOCKER_EXE%" push "%DOCKER_IMAGE%"
-                        if errorlevel 1 exit /b 1
-                    '''
+                                    powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command "$ErrorActionPreference = 'Stop'; $env:DOCKER_PASS | & $env:DOCKER_EXE login --username $env:DOCKER_USER --password-stdin; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }"
+
+                                    if errorlevel 1 exit /b 1
+
+                                    "%DOCKER_EXE%" push "%DOCKER_IMAGE%"
+                                    if errorlevel 1 exit /b 1
+                                '''
+                            } finally {
+                                bat '''
+                                    @echo off
+                                    if exist "%DOCKER_CONFIG%" rmdir /s /q "%DOCKER_CONFIG%"
+                                    exit /b 0
+                                '''
+                            }
+                        }
+                    }
                 }
             }
         }
 
         stage('Deploy to Kubernetes') {
             steps {
-                bat 'set KUBECONFIG=%KUBECONFIG% && "%KUBECTL_EXE%" apply -f k8s\\deployment.yaml'
+                bat '''
+                    set "KUBECONFIG=%KUBECONFIG%"
+                    "%KUBECTL_EXE%" apply -f k8s\\deployment.yaml
+                    if errorlevel 1 exit /b 1
+                '''
 
-                bat 'set KUBECONFIG=%KUBECONFIG% && "%KUBECTL_EXE%" apply -f k8s\\service.yaml'
+                bat '''
+                    set "KUBECONFIG=%KUBECONFIG%"
+                    "%KUBECTL_EXE%" apply -f k8s\\service.yaml
+                    if errorlevel 1 exit /b 1
+                '''
 
-                bat 'set KUBECONFIG=%KUBECONFIG% && "%KUBECTL_EXE%" rollout restart deployment/cloud-cicd-deployment'
+                bat '''
+                    set "KUBECONFIG=%KUBECONFIG%"
+                    "%KUBECTL_EXE%" rollout restart deployment/cloud-cicd-deployment
+                    if errorlevel 1 exit /b 1
+                '''
 
-                bat 'set KUBECONFIG=%KUBECONFIG% && "%KUBECTL_EXE%" rollout status deployment/cloud-cicd-deployment --timeout=180s'
+                bat '''
+                    set "KUBECONFIG=%KUBECONFIG%"
+                    "%KUBECTL_EXE%" rollout status deployment/cloud-cicd-deployment --timeout=180s
+                    if errorlevel 1 exit /b 1
+                '''
 
-                bat 'set KUBECONFIG=%KUBECONFIG% && "%KUBECTL_EXE%" get deployments'
-
-                bat 'set KUBECONFIG=%KUBECONFIG% && "%KUBECTL_EXE%" get pods'
-
-                bat 'set KUBECONFIG=%KUBECONFIG% && "%KUBECTL_EXE%" get services'
+                bat '''
+                    set "KUBECONFIG=%KUBECONFIG%"
+                    "%KUBECTL_EXE%" get deployments
+                    "%KUBECTL_EXE%" get pods
+                    "%KUBECTL_EXE%" get services
+                '''
             }
         }
     }
